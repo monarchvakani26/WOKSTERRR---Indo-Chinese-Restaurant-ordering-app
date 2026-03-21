@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-primary: #0F3D2E;
+  --color-secondary: #A7D7C5;
+  --color-accent: #FF6B35;
+  --color-background: #F9F9F9;
+  --color-foreground: #222222;
+  --font-sans: var(--font-sans-fallback);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Base utility classes if needed */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
