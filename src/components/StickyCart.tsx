@@ -5,6 +5,7 @@ import { useCartStore } from "@/store/useCartStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag, X, Plus, Minus, CreditCard, ArrowRight, CheckCircle2, ChefHat, AlertCircle, RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { placeOrderWithSession } from "@/app/table/actions";
 
 export default function StickyCart() {
   const { items, getTotal, updateQuantity, removeItem, clearCart, tableId } = useCartStore();
@@ -48,50 +49,22 @@ export default function StickyCart() {
     setIsPlacingOrder(true);
 
     try {
-      // 1. Resolve table UUID from table_number (tableId is the number as string from URL)
-      const { data: tableData, error: tableErr } = await supabase
-        .from('tables')
-        .select('id')
-        .eq('table_number', parseInt(tableId))
-        .single();
+      const orderItems = items.map(i => ({ id: i.id, quantity: i.quantity }));
+      const result = await placeOrderWithSession(tableId, orderItems, total);
 
-      if (tableErr || !tableData) throw tableErr || new Error("Table not found");
-
-      // 2. Create the Order
-      const { data: orderData, error: orderErr } = await supabase
-        .from('orders')
-        .insert({
-          table_id: tableData.id,
-          status: 'pending',
-          total_amount: total
-        })
-        .select()
-        .single();
-
-      if (orderErr) throw orderErr;
-
-      // 3. Create the Order Items
-      const orderItems = items.map(item => ({
-        order_id: orderData.id,
-        item_id: item.id,
-        quantity: item.quantity
-      }));
-
-      const { error: itemsErr } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsErr) throw itemsErr;
+      if (!result.success || !result.orderId) {
+        throw new Error(result.error);
+      }
 
       // 4. Success State
       clearCart();
-      setPlacedOrderId(orderData.id);
+      setPlacedOrderId(result.orderId);
       setOrderStatus('pending');
       setOrderSuccess(true);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Order failed:", error);
-      alert("Failed to place order. Please call the waiter.");
+      alert(error.message || "Failed to place order. Please call the waiter.");
     } finally {
       setIsPlacingOrder(false);
     }

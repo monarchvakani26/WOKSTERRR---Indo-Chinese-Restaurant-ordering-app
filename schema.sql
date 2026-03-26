@@ -37,12 +37,20 @@ CREATE TABLE public.order_items (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE public.table_sessions (
+    session_token UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    table_id UUID REFERENCES public.tables(id) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 2. Setup Row Level Security (RLS)
 -- Enable RLS
 ALTER TABLE public.tables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.menu_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.table_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Allow anonymous read access (since customers don't log in)
 CREATE POLICY "Allow public read access to tables" ON public.tables FOR SELECT USING (true);
@@ -55,6 +63,9 @@ CREATE POLICY "Allow public update to orders" ON public.orders FOR UPDATE USING 
 
 CREATE POLICY "Allow public insert to order_items" ON public.order_items FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public read to order_items" ON public.order_items FOR SELECT USING (true);
+
+CREATE POLICY "Allow public insert to table_sessions" ON public.table_sessions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public read to table_sessions" ON public.table_sessions FOR SELECT USING (true);
 
 -- 3. Insert Initial Data: Tables (1 to 10)
 INSERT INTO public.tables (table_number) VALUES 
