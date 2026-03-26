@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import MenuClient from "./MenuClient";
+import ScanInitializer from "./ScanInitializer";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 
 export default async function TablePage({
   params,
@@ -35,27 +35,9 @@ export default async function TablePage({
     );
   }
 
-  // 1. If scanned from physical QR code -> Generate New Session
+  // 1. If scanned from physical QR code -> Generate New Session via Action
   if (isScan) {
-    const { data: sessionData, error: sessionErr } = await supabase
-      .from('table_sessions')
-      .insert({
-        table_id: table.id,
-        expires_at: new Date(Date.now() + 20 * 60 * 1000).toISOString() // 20 mins
-      })
-      .select('session_token')
-      .single();
-
-    if (!sessionErr && sessionData) {
-      cookieStore.set(sessionCookieName, sessionData.session_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 20 * 60, // 20 mins
-        path: '/'
-      });
-      // Redirect to clear the ?scan=true from the address bar
-      redirect(`/table/${id}`);
-    }
+    return <ScanInitializer tableIdString={id} tableDbId={table.id} />;
   }
 
   // 2. Validate existing session if not directly scanned

@@ -2,6 +2,33 @@
 
 import { supabase } from "@/lib/supabase";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+
+export async function createTableSession(tableIdString: string, tableDbId: string) {
+  const sessionCookieName = `woksterrr_session_${tableIdString}`;
+  const cookieStore = await cookies();
+
+  const { data: sessionData, error: sessionErr } = await supabase
+    .from('table_sessions')
+    .insert({
+      table_id: tableDbId,
+      expires_at: new Date(Date.now() + 20 * 60 * 1000).toISOString() // 20 mins
+    })
+    .select('session_token')
+    .single();
+
+  if (!sessionErr && sessionData) {
+    cookieStore.set(sessionCookieName, sessionData.session_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 20 * 60, // 20 mins
+      path: '/'
+    });
+    redirect(`/table/${tableIdString}`);
+  }
+  
+  return { success: false };
+}
 
 interface OrderItem {
   id: string; // menu_item.id
