@@ -19,7 +19,7 @@ export default function Home() {
           <nav className="flex items-center gap-6 text-sm font-bold">
             <Link href="/" className="text-[var(--color-foreground)] hover:text-[var(--color-accent)] transition-colors hidden sm:block">Home</Link>
             <Link href="/menu" className="text-[var(--color-foreground)] hover:text-[var(--color-accent)] transition-colors">Menu</Link>
-            <Link href="/table/1" className="text-[var(--color-accent)] bg-[var(--color-accent)]/10 px-4 py-1.5 rounded-full hover:bg-[var(--color-accent)] hover:text-white transition-colors">Dine-In</Link>
+            <Link href="/table/1?scan=true" className="text-[var(--color-accent)] bg-[var(--color-accent)]/10 px-4 py-1.5 rounded-full hover:bg-[var(--color-accent)] hover:text-white transition-colors">Dine-In (Simulate Scan)</Link>
           </nav>
         </div>
       </header>
