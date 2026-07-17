@@ -5,10 +5,10 @@ import { useCartStore } from "@/store/useCartStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag, X, Plus, Minus, CreditCard, ArrowRight, CheckCircle2, ChefHat, AlertCircle, RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { placeOrderWithSession } from "@/app/table/actions";
+import { placeOrder } from "@/app/order/actions";
 
 export default function StickyCart() {
-  const { items, getTotal, updateQuantity, removeItem, clearCart, tableId } = useCartStore();
+  const { items, getTotal, updateQuantity, removeItem, clearCart, sessionToken, tableNumber } = useCartStore();
   const [isOpen, setIsOpen] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
@@ -45,12 +45,12 @@ export default function StickyCart() {
   if (!mounted || items.length === 0) return null;
 
   const handlePlaceOrder = async () => {
-    if (!tableId || items.length === 0) return;
+    if (!sessionToken || items.length === 0) return;
     setIsPlacingOrder(true);
 
     try {
       const orderItems = items.map(i => ({ id: i.id, quantity: i.quantity }));
-      const result = await placeOrderWithSession(tableId, orderItems, total);
+      const result = await placeOrder(sessionToken, orderItems);
 
       if (!result.success || !result.orderId) {
         throw new Error(result.error);
@@ -122,13 +122,13 @@ export default function StickyCart() {
           <div className="bg-[var(--color-background)] rounded-xl p-5 border border-[var(--color-secondary)]/30 mb-8 relative z-10 text-left">
             {orderStatus === 'pending' && <p className="text-gray-600 font-medium text-sm">Your order is received and waiting to be accepted by the kitchen.</p>}
             {orderStatus === 'preparing' && <p className="text-orange-600 font-medium text-sm">The chefs are cooking up your order right now!</p>}
-            {orderStatus === 'ready' && <p className="text-green-600 font-bold text-sm">Your order is ready! Please proceed to the counter with Table {tableId} to collect and pay.</p>}
+            {orderStatus === 'ready' && <p className="text-green-600 font-bold text-sm">Your order is ready! Please proceed to the counter{tableNumber !== null ? ` with Table ${tableNumber}` : ''} to collect and pay.</p>}
             {orderStatus === 'completed' && <p className="text-gray-500 font-medium text-sm">This order has been completed and paid.</p>}
 
             {(orderStatus === 'pending' || orderStatus === 'preparing') && (
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <p className="text-xs font-bold text-[var(--color-accent)] uppercase mb-1">Payment Instructions</p>
-                <p className="text-xs font-medium text-gray-500 shrink-0">Please proceed to the counter with your Table Number ({tableId}) to complete payment once ready.</p>
+                <p className="text-xs font-medium text-gray-500 shrink-0">Please proceed to the counter{tableNumber !== null ? ` with your Table Number (${tableNumber})` : ''} to complete payment once ready.</p>
               </div>
             )}
           </div>

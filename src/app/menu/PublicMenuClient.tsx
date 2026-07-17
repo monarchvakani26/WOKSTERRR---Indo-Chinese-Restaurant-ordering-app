@@ -131,3 +131,4 @@ export default function PublicMenuClient({ menuItems }: Props) {
     </div>
   );
 }
+

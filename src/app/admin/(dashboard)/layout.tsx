@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { Utensils, LogOut, LayoutDashboard, History } from "lucide-react";
+import { Utensils, LogOut, LayoutDashboard, History, Table2 } from "lucide-react";
 import Link from "next/link";
 import { logoutAdmin } from "../actions";
 
@@ -32,6 +32,10 @@ export default async function AdminDashboardLayout({
           <Link href="/admin/history" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 transition-colors text-gray-300 hover:text-white font-medium">
             <History size={20} className="text-[var(--color-secondary)]" />
             Order History
+          </Link>
+          <Link href="/admin/tables" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 transition-colors text-gray-300 hover:text-white font-medium">
+            <Table2 size={20} className="text-[var(--color-secondary)]" />
+            Table Sessions
           </Link>
         </nav>
         <div className="p-4 border-t border-white/10">

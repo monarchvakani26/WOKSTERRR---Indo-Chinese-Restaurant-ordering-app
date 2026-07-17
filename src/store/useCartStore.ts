@@ -15,9 +15,13 @@ export interface CartItem extends MenuItem {
 }
 
 interface CartStore {
-  tableId: string | null;
+  // sessionToken is the secure identifier sent to placeOrder server action
+  sessionToken: string | null;
+  // tableNumber is for display only — never used for security decisions
+  tableNumber: number | null;
   items: CartItem[];
-  setTableId: (id: string) => void;
+  setSessionToken: (token: string) => void;
+  setTableNumber: (num: number) => void;
   addItem: (item: MenuItem) => void;
   removeItem: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, qty: number) => void;
@@ -26,9 +30,11 @@ interface CartStore {
 }
 
 export const useCartStore = create<CartStore>((set, get) => ({
-  tableId: null,
+  sessionToken: null,
+  tableNumber: null,
   items: [],
-  setTableId: (id) => set({ tableId: id }),
+  setSessionToken: (token) => set({ sessionToken: token }),
+  setTableNumber: (num) => set({ tableNumber: num }),
   addItem: (item) => {
     set((state) => {
       // Check if item already exists
@@ -56,3 +62,4 @@ export const useCartStore = create<CartStore>((set, get) => ({
   clearCart: () => set({ items: [] }),
   getTotal: () => get().items.reduce((total, item) => total + (item.price * item.quantity), 0),
 }));
+
