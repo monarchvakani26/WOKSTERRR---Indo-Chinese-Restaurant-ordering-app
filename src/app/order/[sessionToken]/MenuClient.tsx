@@ -2,24 +2,117 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useCartStore, MenuItem } from "@/store/useCartStore";
-import { Plus, Search, Info } from "lucide-react";
+import { Plus, Search, Info, Clock, CheckCircle2, ChefHat, AlertCircle, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
+import { supabase } from "@/lib/supabase";
+
+interface OrderItem {
+  id: string;
+  quantity: number;
+  menu_items: {
+    name: string;
+  } | null;
+}
+
+interface Order {
+  id: string;
+  status: "pending" | "preparing" | "ready" | "completed";
+  total_amount: number;
+  created_at: string;
+  order_items: OrderItem[];
+}
 
 interface Props {
   sessionToken: string;
   tableNumber: number | null;
+  tableId: string;
+  sessionCreatedAt: string;
+  initialOrders: any[];
   menuItems: MenuItem[];
 }
 
-export default function MenuClient({ sessionToken, tableNumber, menuItems }: Props) {
+export default function MenuClient({
+  sessionToken,
+  tableNumber,
+  tableId,
+  sessionCreatedAt,
+  initialOrders,
+  menuItems,
+}: Props) {
   const { setSessionToken, setTableNumber, addItem } = useCartStore();
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [search, setSearch] = useState("");
+  const [orders, setOrders] = useState<Order[]>(initialOrders as unknown as Order[]);
 
   useEffect(() => {
     setSessionToken(sessionToken);
     if (tableNumber !== null) setTableNumber(tableNumber);
   }, [sessionToken, tableNumber, setSessionToken, setTableNumber]);
+
+  // Realtime Orders Subscription for this table & session
+  useEffect(() => {
+    const channel = supabase
+      .channel(`table-orders-${tableId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `table_id=eq.${tableId}`,
+        },
+        async (payload) => {
+          if (payload.eventType === "INSERT") {
+            const newOrder = payload.new;
+            // Verify order belongs to the current session (after start time)
+            if (
+              newOrder.table_id === tableId &&
+              new Date(newOrder.created_at) >= new Date(sessionCreatedAt)
+            ) {
+              // Fetch full details of the newly inserted order
+              const { data: orderDetails } = await supabase
+                .from("orders")
+                .select(`
+                  id,
+                  status,
+                  total_amount,
+                  created_at,
+                  order_items (
+                    id,
+                    quantity,
+                    menu_items (
+                      name
+                    )
+                  )
+                `)
+                .eq("id", newOrder.id)
+                .single();
+
+              if (orderDetails) {
+                setOrders((prev) => {
+                  if (prev.some((o) => o.id === orderDetails.id)) return prev;
+                  return [orderDetails as unknown as Order, ...prev];
+                });
+              }
+            }
+          } else if (payload.eventType === "UPDATE") {
+            const updatedOrder = payload.new;
+            setOrders((prev) =>
+              prev.map((o) =>
+                o.id === updatedOrder.id
+                  ? { ...o, status: updatedOrder.status as any }
+                  : o
+              )
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tableId, sessionCreatedAt]);
 
   // Group items by category
   const categories = useMemo(() => {
@@ -63,6 +156,102 @@ export default function MenuClient({ sessionToken, tableNumber, menuItems }: Pro
           Browse and order directly to your table.
         </p>
       </div>
+
+      {/* Active Orders Status Panel */}
+      {orders.length > 0 && (
+        <div className="mb-10 space-y-4">
+          <h2 className="text-xl font-black text-[var(--color-primary)] flex items-center gap-2">
+            <span>Your Session Orders</span>
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+          </h2>
+          <div className="space-y-4">
+            {orders.map((order) => {
+              const isPreparing = order.status === 'preparing' || order.status === 'ready' || order.status === 'completed';
+              const isReady = order.status === 'ready' || order.status === 'completed';
+              const isCompleted = order.status === 'completed';
+
+              const getStatusBadgeClass = (status: string) => {
+                switch(status) {
+                  case 'pending': return 'bg-red-50 text-red-700 border-red-100';
+                  case 'preparing': return 'bg-orange-50 text-orange-700 border-orange-100';
+                  case 'ready': return 'bg-green-50 text-green-700 border-green-200 animate-pulse';
+                  default: return 'bg-gray-100 text-gray-500 border-gray-200';
+                }
+              };
+
+              const getStatusLabel = (status: string) => {
+                switch(status) {
+                  case 'pending': return 'Received';
+                  case 'preparing': return 'Cooking';
+                  case 'ready': return 'Ready to Collect!';
+                  default: return 'Completed & Paid';
+                }
+              };
+
+              return (
+                <div key={order.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col sm:flex-row justify-between gap-6">
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-gray-400">#{order.id.slice(0, 6).toUpperCase()}</span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getStatusBadgeClass(order.status)}`}>
+                        {getStatusLabel(order.status)}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      {order.order_items.map((item: any) => (
+                        <div key={item.id} className="text-sm font-medium text-gray-700">
+                          <span className="font-extrabold text-[var(--color-primary)] mr-2">{item.quantity}x</span>
+                          <span>{item.menu_items?.name || "Unknown Item"}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="text-xs text-gray-400 font-medium">
+                      Placed at {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+
+                  {/* Order Progress Visualizer */}
+                  {!isCompleted && (
+                    <div className="flex flex-col justify-center min-w-[200px] gap-2 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                      <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                        <span className="text-[var(--color-primary)]">Sent</span>
+                        <span className={isPreparing ? 'text-[var(--color-primary)]' : ''}>Prep</span>
+                        <span className={isReady ? 'text-green-600' : ''}>Ready</span>
+                      </div>
+                      
+                      {/* Bar indicator */}
+                      <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden relative">
+                        <div 
+                          className="h-full bg-[var(--color-primary)] transition-all duration-500 rounded-full" 
+                          style={{ width: isReady ? '100%' : isPreparing ? '60%' : '20%' }}
+                        />
+                      </div>
+
+                      {order.status === 'ready' && (
+                        <div className="text-[10px] font-black text-green-600 text-center uppercase tracking-wide mt-1">
+                          👉 Proceed to counter to pay & collect!
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {isCompleted && (
+                    <div className="flex items-center gap-2 text-gray-400 font-bold text-sm bg-gray-50 px-4 py-2 rounded-xl h-fit border border-gray-100 self-center">
+                      <CheckCircle2 size={16} className="text-gray-400" />
+                      <span>Served & Paid</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Search & Categories */}
       <div className="sticky top-0 z-30 bg-[var(--color-background)]/90 backdrop-blur-md pt-2 pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">

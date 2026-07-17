@@ -7,6 +7,7 @@ interface TableSession {
   expires_at: string;
   status: string;
   table_id: string;
+  created_at: string;
   tables: { table_number: number } | null;
 }
 
@@ -70,7 +71,7 @@ export default async function OrderPage({
   // 2. Validate session: active + not expired
   const { data: session, error: sessionErr } = await supabase
     .from("table_sessions")
-    .select("session_token, expires_at, status, table_id, tables(table_number)")
+    .select("session_token, expires_at, status, table_id, created_at, tables(table_number)")
     .eq("session_token", sessionToken)
     .eq("status", "active")
     .maybeSingle();
@@ -86,7 +87,27 @@ export default async function OrderPage({
   const typedSession = session as unknown as TableSession;
   const tableNumber = typedSession.tables?.table_number ?? null;
 
-  // 3. Fetch available menu items
+  // 3. Fetch orders placed during this specific session
+  const { data: activeOrders } = await supabase
+    .from("orders")
+    .select(`
+      id,
+      status,
+      total_amount,
+      created_at,
+      order_items (
+        id,
+        quantity,
+        menu_items (
+          name
+        )
+      )
+    `)
+    .eq("table_id", typedSession.table_id)
+    .gte("created_at", typedSession.created_at)
+    .order("created_at", { ascending: false });
+
+  // 4. Fetch available menu items
   const { data: menuItems, error: menuErr } = await supabase
     .from("menu_items")
     .select("*")
@@ -104,6 +125,9 @@ export default async function OrderPage({
     <MenuClient
       sessionToken={sessionToken}
       tableNumber={tableNumber}
+      tableId={typedSession.table_id}
+      sessionCreatedAt={typedSession.created_at}
+      initialOrders={activeOrders || []}
       menuItems={menuItems ?? []}
     />
   );
